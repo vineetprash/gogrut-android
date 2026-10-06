@@ -1,6 +1,6 @@
 # Grogut (Android)
 
-Paste a YouTube / YT Music link, pick **MP3 / M4A / AAC / OPUS** and a
+Paste a YouTube / YT Music link, Or share link from youtube to Grogut. Pick **MP3 / M4A / AAC / OPUS** and a
 **bitrate**, get the file. Everything runs on the phone.
 
 ## Build
