@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Same neo-brutalist UI as the web/Flask version, plus format + bitrate pickers. */
 public class MainActivity extends Activity implements ConvertService.Listener {
     static final int PAPER = 0xFFF3EFDF, CARD = 0xFFFFFDF4, INK = 0xFF171916, GREEN = 0xFFB8E85A,
             GREEN_DARK = 0xFF40582B, PINK = 0xFFED3F91, ORANGE = 0xFFF27B32, BLUE = 0xFF65A5C5,
@@ -61,7 +60,7 @@ public class MainActivity extends Activity implements ConvertService.Listener {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        Log.i("GroguYt", "NewPipeExtractor " + BuildConfig.EXTRACTOR_VERSION);
+        Log.i("Grogut", "NewPipeExtractor " + BuildConfig.EXTRACTOR_VERSION);
         d = getResources().getDisplayMetrics().density;
         small = getResources().getConfiguration().screenWidthDp <= 520;
         opusEncode = Codecs.canEncodeOpus();

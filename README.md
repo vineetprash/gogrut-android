@@ -1,7 +1,7 @@
-# GroguYt (Android)
+# Grogut (Android)
 
-Native Android port of `grogu-mp3`: paste a YouTube / YT Music link, pick **MP3 / M4A / AAC / OPUS** and a
-**bitrate**, get the file. No Python, no ffmpeg, no server – everything runs on the phone.
+Paste a YouTube / YT Music link, pick **MP3 / M4A / AAC / OPUS** and a
+**bitrate**, get the file. Everything runs on the phone.
 
 ## Build
 Android Studio (Koala+) → open this folder → Run. Or:
@@ -32,11 +32,6 @@ in `gradle/libs.versions.toml`:
 
 ORIG is instant and lossless relative to YouTube's stream. Re-encoding above the source bitrate (~128–160 kbps)
 only makes bigger files.
-
-## Flask → Android
-`server.py /api/convert` → `core/Engine.java` · yt-dlp → NewPipeExtractor · ffmpeg → MediaCodec + `audio/*` ·
-host allowlist → `core/LinkParser.java` · `--restrict-filenames` → `core/Names.java` · page + app.js → `ui/MainActivity.java`
-· `<audio>` → `ui/MiniPlayer.java` · `<a download>` → `ui/Saver.java` · long jobs → `ui/ConvertService.java` (foreground, cancellable).
 
 ## Tests
 `tests/*.java` are plain-JVM harnesses (MP3/M4A/ADTS/Ogg-Opus writers verified with ffprobe, chunked downloader and

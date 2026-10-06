@@ -17,5 +17,5 @@ dependencyResolutionManagement {
         }
     }
 }
-rootProject.name = "GroguYt"
+rootProject.name = "Grogut"
 include(":app", ":lame")

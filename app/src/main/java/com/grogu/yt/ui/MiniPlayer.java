@@ -14,7 +14,6 @@ import android.widget.TextView;
 import java.io.File;
 import java.util.Locale;
 
-/** Native stand-in for <audio controls preload="metadata">. */
 final class MiniPlayer extends LinearLayout {
     private final TextView play, time;
     private final SeekBar seek;
