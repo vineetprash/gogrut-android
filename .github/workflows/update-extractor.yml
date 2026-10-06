@@ -1,0 +1,19 @@
+# Checks daily for a new NewPipeExtractor release and opens a pull request that bumps it.
+# Merge the PR -> the build workflow produces a fresh APK.
+name: Update extractor
+on:
+  schedule: [{ cron: "17 5 * * *" }]
+  workflow_dispatch:
+permissions: { contents: write, pull-requests: write }
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/update-extractor.sh
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Bump NewPipeExtractor"
+          title: "Bump NewPipeExtractor (YouTube fix)"
+          branch: bump-newpipe-extractor
+          body: "Automated: newer NewPipeExtractor release available. Merge to rebuild the APK."

@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  THE ONE LINE YOU CHANGE WHEN YOUTUBE BREAKS:  newpipe-extractor
+#
+#  NewPipeExtractor (the "yt-dlp" of this app) is patched by Team NewPipe whenever YouTube
+#  changes. Fixes are published as tags:  https://github.com/TeamNewPipe/NewPipeExtractor/releases
+#
+#     ./scripts/update-extractor.sh          # bumps this line to the newest release
+#     ./gradlew assembleRelease              # rebuild, reinstall  -> done
+#
+#  Need a fix that is merged but not yet tagged?  Build with a commit hash instead:
+#     ./gradlew assembleRelease -PextractorSnapshot=<short-commit-hash>
+# ─────────────────────────────────────────────────────────────────────────────
+[versions]
+agp = "8.7.3"
+newpipe-extractor = "v0.26.5"
+desugar = "2.1.5"
+
+[libraries]
+newpipe-extractor = { module = "com.github.teamnewpipe:NewPipeExtractor", version.ref = "newpipe-extractor" }
+desugar-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
