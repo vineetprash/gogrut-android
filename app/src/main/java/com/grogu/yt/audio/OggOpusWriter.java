@@ -161,7 +161,7 @@ public final class OggOpusWriter {
     private static byte[] buildTags(Meta m) throws IOException {
         ByteArrayOutputStream o = new ByteArrayOutputStream();
         o.write(new byte[]{'O', 'p', 'u', 's', 'T', 'a', 'g', 's'});
-        byte[] vendor = "Grogut".getBytes("UTF-8");
+        byte[] vendor = "Gogrut".getBytes("UTF-8");
         le32(o, vendor.length); o.write(vendor);
         java.util.List<byte[]> c = new java.util.ArrayList<byte[]>();
         if (m != null) {

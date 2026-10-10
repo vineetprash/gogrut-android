@@ -6,8 +6,11 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
@@ -22,6 +25,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,6 +34,8 @@ import com.grogu.yt.R;
 import com.grogu.yt.audio.Codecs;
 import com.grogu.yt.audio.Format;
 import com.grogu.yt.core.Engine;
+import com.grogu.yt.core.LibraryStore;
+import com.grogu.yt.core.LibraryTrack;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -55,38 +61,47 @@ public class MainActivity extends Activity implements ConvertService.Listener {
     private final List<Brutal> formatChips = new ArrayList<Brutal>(), bitrateChips = new ArrayList<Brutal>();
     private File audioFile; private String audioName, audioMime;
     private boolean opusEncode;
+    private FrameLayout screen;
+    private MediaPlayer player;
+    private LibraryTrack playing;
+    private TextView playerTitle, playerArtist, playerPlay, playerTime;
+    private SeekBar playerSeek;
+    private boolean shuffle, repeat;
+    private final List<LibraryTrack> queue = new ArrayList<LibraryTrack>();
+    private final Handler playerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable playerTick = new Runnable() {
+        public void run() {
+            if (player != null) {
+                try {
+                    if (playerSeek != null) playerSeek.setProgress(player.getCurrentPosition());
+                    if (playerTime != null) playerTime.setText(formatTime(player.getCurrentPosition()));
+                    if (player.isPlaying()) playerHandler.postDelayed(this, 500);
+                } catch (IllegalStateException ignored) { }
+            }
+        }
+    };
 
     private int dp(float v) { return Math.round(v * d); }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
-        Log.i("Grogut", "NewPipeExtractor " + BuildConfig.EXTRACTOR_VERSION);
+        Log.i("Gogrut", "NewPipeExtractor " + BuildConfig.EXTRACTOR_VERSION);
         d = getResources().getDisplayMetrics().density;
         small = getResources().getConfiguration().screenWidthDp <= 520;
         opusEncode = Codecs.canEncodeOpus();
         getWindow().setStatusBarColor(0xFFD7EF9B);
         if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackground(new DotBackground(PAPER, INK, d));
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        int pad = small ? 18 : 24;
-        LinearLayout holder = new LinearLayout(this);
-        holder.setGravity(Gravity.CENTER);
-        holder.setPadding(dp(pad), dp(pad), dp(Math.max(0, pad - 14)), dp(pad));
-        int faceW = Math.min(dp(480), getResources().getDisplayMetrics().widthPixels - dp(pad) * 2);
-        holder.addView(buildCard(), new LinearLayout.LayoutParams(faceW + dp(14), -2));
-        scroll.addView(holder, new FrameLayout.LayoutParams(-1, -2));
-        root.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
-        setContentView(root);
-        selectFormat(Format.MP3);
+        screen = new FrameLayout(this);
+        screen.setBackground(new DotBackground(PAPER, INK, d));
+        setContentView(screen);
+        showLibraryOrDownloader();
         handleShare(getIntent());
     }
 
     @Override protected void onStart() { super.onStart(); ConvertService.setListener(this); }
-    @Override protected void onStop() { super.onStop(); ConvertService.setListener(null); preview.pause(); }
-    @Override protected void onDestroy() { super.onDestroy(); preview.release(); }
+    @Override protected void onStop() { super.onStop(); ConvertService.setListener(null); if (preview != null) preview.pause(); }
+    @Override protected void onDestroy() { super.onDestroy(); if (preview != null) preview.release(); releasePlayer(); }
     @Override protected void onNewIntent(Intent i) { super.onNewIntent(i); handleShare(i); }
 
     private void handleShare(Intent i) {
@@ -98,6 +113,131 @@ public class MainActivity extends Activity implements ConvertService.Listener {
     }
 
     // ------------------------------------------------------------------ layout
+
+    private void showLibraryOrDownloader() {
+        if (LibraryStore.list(this).isEmpty()) showDownloader(); else showLibrary();
+    }
+
+    private void showDownloader() {
+        screen.removeAllViews();
+        LinearLayout shell = shell("GET AUDIO", false);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        int pad = small ? 18 : 24;
+        LinearLayout holder = new LinearLayout(this);
+        holder.setGravity(Gravity.CENTER);
+        holder.setPadding(dp(pad), dp(pad), dp(Math.max(0, pad - 14)), dp(pad));
+        int faceW = Math.min(dp(480), getResources().getDisplayMetrics().widthPixels - dp(pad) * 2);
+        holder.addView(buildCard(), new LinearLayout.LayoutParams(faceW + dp(14), -2));
+        scroll.addView(holder, new FrameLayout.LayoutParams(-1, -2));
+        shell.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        screen.addView(shell);
+        selectFormat(Format.MP3);
+    }
+
+    private void showLibrary() {
+        screen.removeAllViews();
+        LinearLayout shell = shell("LIBRARY", true);
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(18), dp(18), dp(18), dp(24));
+        List<LibraryTrack> tracks = LibraryStore.list(this);
+        queue.clear(); queue.addAll(tracks);
+        TextView heading = text("YOUR MUSIC", 27, INK, "sans-serif-black", Typeface.NORMAL);
+        heading.setLetterSpacing(-0.04f);
+        list.addView(heading, lp(-1, -2, 0, 0, 0, 2));
+        TextView sub = text(tracks.size() + (tracks.size() == 1 ? " SONG" : " SONGS") + "  /  READY OFFLINE", 11, GREEN_DARK, "sans-serif", Typeface.BOLD);
+        sub.setLetterSpacing(0.07f); list.addView(sub, lp(-1, -2, 0, 0, 0, 16));
+        LinearLayout controls = new LinearLayout(this); controls.setGravity(Gravity.CENTER_VERTICAL);
+        Brutal playAll = action("PLAY ALL", GREEN, INK);
+        playAll.setOnClickListener(v -> { if (!tracks.isEmpty()) playTrack(tracks.get(0)); });
+        controls.addView(playAll, new LinearLayout.LayoutParams(0, dp(46), 1));
+        Brutal shuffleBtn = action(shuffle ? "SHUFFLE ON" : "SHUFFLE", ORANGE, INK);
+        shuffleBtn.setOnClickListener(v -> { shuffle = !shuffle; showLibrary(); });
+        LinearLayout.LayoutParams sh = new LinearLayout.LayoutParams(0, dp(46), 1); sh.leftMargin = dp(10); controls.addView(shuffleBtn, sh);
+        list.addView(controls, lp(-1, 54, 0, 0, 0, 14));
+        for (final LibraryTrack track : tracks) list.addView(trackRow(track));
+        if (tracks.isEmpty()) {
+            TextView empty = text("Your downloaded songs will show up here.\nPaste a YouTube link to get started.", 15, INK, "sans-serif", Typeface.BOLD);
+            empty.setGravity(Gravity.CENTER); empty.setPadding(dp(10), dp(50), dp(10), dp(50));
+            list.addView(empty, lp(-1, -2, 0, 20, 0, 0));
+        }
+        if (playing != null) list.addView(buildPlayerPanel(), lp(-1, -2, 0, 22, 0, 0));
+        scroll.addView(list, new FrameLayout.LayoutParams(-1, -2));
+        shell.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        screen.addView(shell);
+    }
+
+    private LinearLayout shell(String selected, boolean library) {
+        LinearLayout shell = new LinearLayout(this); shell.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout nav = new LinearLayout(this); nav.setPadding(dp(16), dp(14), dp(16), dp(6));
+        Brutal lib = action("LIBRARY", library ? GREEN : CARD, INK);
+        lib.setOnClickListener(v -> showLibrary()); nav.addView(lib, new LinearLayout.LayoutParams(0, dp(44), 1));
+        Brutal get = action("GET AUDIO", library ? CARD : GREEN, INK);
+        get.setOnClickListener(v -> showDownloader()); LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(0, dp(44), 1); gp.leftMargin = dp(10); nav.addView(get, gp);
+        shell.addView(nav, new LinearLayout.LayoutParams(-1, dp(64)));
+        return shell;
+    }
+
+    private Brutal action(String title, int face, int ink) {
+        Brutal b = new Brutal(this, face, ink, 3).shadows(new float[]{4}, new int[]{INK}).pressEffect(true);
+        TextView t = text(title, 11.5f, ink, "sans-serif", Typeface.BOLD); t.setGravity(Gravity.CENTER); t.setLetterSpacing(0.04f);
+        b.addView(t, new FrameLayout.LayoutParams(-1, -1)); return b;
+    }
+
+    private View trackRow(final LibraryTrack track) {
+        Brutal row = new Brutal(this, CARD, INK, 2).shadows(new float[]{3}, new int[]{PINK}).pressEffect(true);
+        LinearLayout inside = new LinearLayout(this); inside.setGravity(Gravity.CENTER_VERTICAL); inside.setPadding(dp(12), dp(8), dp(8), dp(8));
+        ImageView art = new ImageView(this);
+        art.setImageResource(Math.abs(track.file.getName().hashCode()) % 2 == 0 ? R.drawable.p1 : R.drawable.p2);
+        art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        inside.addView(art, new LinearLayout.LayoutParams(dp(40), dp(48)));
+        LinearLayout words = new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL); words.setPadding(dp(10), 0, dp(6), 0);
+        TextView title = text(track.title, 14, INK, "sans-serif", Typeface.BOLD); title.setSingleLine(true); title.setEllipsize(TextUtils.TruncateAt.END);
+        TextView artist = text(track.subtitle(), 11, GREEN_DARK, "sans-serif", Typeface.BOLD); artist.setSingleLine(true); artist.setEllipsize(TextUtils.TruncateAt.END);
+        words.addView(title, new LinearLayout.LayoutParams(-1, 0, 1)); words.addView(artist, new LinearLayout.LayoutParams(-1, 0, 1));
+        inside.addView(words, new LinearLayout.LayoutParams(0, dp(52), 1));
+        TextView more = text("⋮", 27, INK, "sans-serif", Typeface.BOLD); more.setGravity(Gravity.CENTER); inside.addView(more, new LinearLayout.LayoutParams(dp(32), dp(48)));
+        row.addView(inside, new FrameLayout.LayoutParams(-1, -1));
+        row.setOnClickListener(v -> playTrack(track));
+        row.setOnLongClickListener(v -> { LibraryStore.remove(track); if (playing == track) { releasePlayer(); playing = null; } showLibrary(); Toast.makeText(this, "Removed from library", Toast.LENGTH_SHORT).show(); return true; });
+        return row;
+    }
+
+    private View buildPlayerPanel() {
+        Brutal panel = new Brutal(this, GREEN, INK, 3).shadows(new float[]{5}, new int[]{INK});
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(dp(14), dp(12), dp(14), dp(10));
+        playerTitle = text(playing.title, 16, INK, "sans-serif-black", Typeface.NORMAL); playerTitle.setSingleLine(true); playerTitle.setEllipsize(TextUtils.TruncateAt.END);
+        playerArtist = text(playing.subtitle(), 11, GREEN_DARK, "sans-serif", Typeface.BOLD); box.addView(playerTitle); box.addView(playerArtist, lp(-1, -2, 0, 2, 0, 5));
+        LinearLayout controls = new LinearLayout(this); controls.setGravity(Gravity.CENTER_VERTICAL);
+        TextView prev = text("|◀", 18, INK, "sans-serif", Typeface.BOLD); prev.setGravity(Gravity.CENTER); prev.setOnClickListener(v -> step(-1)); controls.addView(prev, new LinearLayout.LayoutParams(dp(42), dp(38)));
+        playerPlay = text(player != null && player.isPlaying() ? "❚❚" : "▶", 22, INK, "sans-serif", Typeface.BOLD); playerPlay.setGravity(Gravity.CENTER); playerPlay.setOnClickListener(v -> togglePlayer()); controls.addView(playerPlay, new LinearLayout.LayoutParams(dp(50), dp(38)));
+        TextView next = text("▶|", 18, INK, "sans-serif", Typeface.BOLD); next.setGravity(Gravity.CENTER); next.setOnClickListener(v -> step(1)); controls.addView(next, new LinearLayout.LayoutParams(dp(42), dp(38)));
+        playerSeek = new SeekBar(this); if (player != null) { try { playerSeek.setMax(player.getDuration()); } catch (IllegalStateException ignored) {} } controls.addView(playerSeek, new LinearLayout.LayoutParams(0, -2, 1));
+        playerTime = text("0:00", 10, INK, "sans-serif", Typeface.BOLD); controls.addView(playerTime, new LinearLayout.LayoutParams(dp(42), -2)); box.addView(controls);
+        TextView modes = text((shuffle ? "SHUFFLE ON" : "SHUFFLE OFF") + "   /   " + (repeat ? "REPEAT ON" : "REPEAT OFF"), 10, INK, "sans-serif", Typeface.BOLD);
+        modes.setGravity(Gravity.RIGHT); modes.setOnClickListener(v -> { repeat = !repeat; showLibrary(); }); box.addView(modes, lp(-1, -2, 0, 3, 0, 0));
+        panel.addView(box, new FrameLayout.LayoutParams(-1, -2));
+        playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() { public void onProgressChanged(SeekBar s, int p, boolean u) { if (u && player != null) player.seekTo(p); } public void onStartTrackingTouch(SeekBar s) {} public void onStopTrackingTouch(SeekBar s) {} });
+        return panel;
+    }
+
+    private void playTrack(LibraryTrack track) {
+        releasePlayer(); playing = track;
+        try { player = new MediaPlayer(); player.setDataSource(track.file.getAbsolutePath()); player.setOnPreparedListener(mp -> { mp.start(); playerHandler.post(playerTick); showLibrary(); }); player.setOnCompletionListener(mp -> step(1)); player.prepareAsync(); }
+        catch (Exception e) { Toast.makeText(this, "Couldn't play this file", Toast.LENGTH_SHORT).show(); releasePlayer(); }
+    }
+
+    private void togglePlayer() { if (player == null) return; if (player.isPlaying()) player.pause(); else { player.start(); playerHandler.post(playerTick); } showLibrary(); }
+    private void step(int direction) {
+        if (queue.isEmpty()) return;
+        int i = playing == null ? -1 : queue.indexOf(playing); if (shuffle) i = (int) (Math.random() * queue.size()); else i = (i + direction + queue.size()) % queue.size();
+        if (repeat && direction > 0) i = queue.indexOf(playing);
+        playTrack(queue.get(Math.max(0, i)));
+    }
+    private void releasePlayer() { playerHandler.removeCallbacks(playerTick); if (player != null) { try { player.release(); } catch (Exception ignored) {} player = null; } }
+    private static String formatTime(int ms) { int seconds = Math.max(0, ms / 1000); return String.format(java.util.Locale.US, "%d:%02d", seconds / 60, seconds % 60); }
 
     private Brutal buildCard() {
         Brutal card = new Brutal(this, CARD, INK, 3).shadows(new float[]{14, 8}, new int[]{INK, PINK}).clipToFace(true);
@@ -219,7 +359,7 @@ public class MainActivity extends Activity implements ConvertService.Listener {
         t.setPadding(0, dp(40), 0, 0);
         Brutal h1 = new Brutal(this, GREEN, INK, 3).shadows(new float[]{5}, new int[]{INK});
         float size = Math.min(48f, Math.max(32f, getResources().getConfiguration().screenWidthDp * 0.09f));
-        TextView tv = text("GROGU\nYT", size, INK, "sans-serif-black", Typeface.NORMAL);
+        TextView tv = text("GOGRUT\n", size, INK, "sans-serif-black", Typeface.NORMAL);
         tv.setLetterSpacing(-0.07f); tv.setLineSpacing(0, 0.86f); tv.setIncludeFontPadding(false);
         tv.setPadding(dp(9), dp(8), dp(9), dp(8));
         h1.addView(tv, new FrameLayout.LayoutParams(-2, -2));
@@ -299,6 +439,8 @@ public class MainActivity extends Activity implements ConvertService.Listener {
     }
 
     @Override public void onState(ConvertService.State s) {
+        if (statusEl == null && s.result != null) showDownloader();
+        if (statusEl == null) return;
         goBtn.setEnabled(!s.running);
         goLabel.setText(s.running ? "Working…" : "CONVERT");
         cancelBtn.setVisibility(s.running ? View.VISIBLE : View.GONE);

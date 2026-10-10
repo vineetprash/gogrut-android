@@ -35,7 +35,11 @@ public final class Engine {
         public final File file;
         public final String name;
         public final String mime;
-        Result(File f, String n, String m) { file = f; name = n; mime = m; }
+        public final String title;
+        public final String artist;
+        Result(File f, String n, String m, String t, String a) {
+            file = f; name = n; mime = m; title = t; artist = a;
+        }
     }
 
     /** User-facing failure with a ready-to-show message. */
@@ -93,10 +97,9 @@ public final class Engine {
             Meta meta = new Meta(info.getName(), artist(info), null, cover(info));
 
             String base = Names.restrict(info.getName(), 150);
-            File outDir = new File(ctx.getCacheDir(), "results");
-            ZipDelete.rm(outDir);
+            File outDir = new File(ctx.getFilesDir(), "music");
             outDir.mkdirs();
-            File out = new File(outDir, base + "." + fmt.ext);
+            File out = LibraryStore.uniqueFile(outDir, base + "." + fmt.ext);
 
             boolean passthrough = plan.passthrough;
             ui.status(passthrough ? "Packaging…" : "Converting…", 62);
@@ -106,7 +109,8 @@ public final class Engine {
                             ui.status("Converting…", total > 0 ? 62 + (int) (done * 37 / total) : 80);
                         }
                     }, cancel);
-            return new Result(out, out.getName(), fmt.mime);
+            LibraryStore.writeMetadata(out, info.getName(), artist(info), fmt.mime);
+            return new Result(out, out.getName(), fmt.mime, info.getName(), artist(info));
         } catch (LinkParser.Bad e) {
             throw new Failure(e.getMessage(), e);
         } catch (StreamPicker.Unsupported e) {

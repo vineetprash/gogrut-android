@@ -1,7 +1,8 @@
-# Grogut (Android)
+# Gogrut (Android)
 
-Paste a YouTube / YT Music link, Or share link from youtube to Grogut. Pick **MP3 / M4A / AAC / OPUS** and a
-**bitrate**, get the file. Everything runs on the phone.
+Gogrut is a small offline music deck. Paste a YouTube / YT Music link, or share a link from YouTube to Gogrut.
+Pick **MP3 / M4A / AAC / OPUS** and a bitrate. Finished downloads are kept in the in-app library so they can be
+played offline with play-all, shuffle, repeat, previous/next, seeking, and long-press removal.
 
 ## Build
 Android Studio (Koala+) → open this folder → Run. Or:
@@ -21,6 +22,10 @@ in `gradle/libs.versions.toml`:
   `build.yml`, which builds a fresh APK.
 * A fix merged upstream but not yet tagged: `./gradlew assembleRelease -PextractorSnapshot=<short-commit-hash>`.
 * Only `core/Engine.java` touches the extractor API, so an API change upstream means editing one file.
+
+The extractor only resolves and downloads the selected progressive audio stream; local playback is handled by
+Android's `MediaPlayer`. Library audio lives in the app's private `files/music` directory and is indexed by small
+metadata sidecars, so one conversion no longer replaces earlier songs.
 
 ## Formats
 | Format | ORIG | Re-encode choices | How |

@@ -1,7 +1,7 @@
 import com.grogu.yt.audio.*; import java.io.*; import java.nio.file.*;
 public class T1 { public static void main(String[] a) throws Exception {
   byte[] pcm = Files.readAllBytes(Paths.get("/tmp/t/in.pcm")); byte[] cover = Files.readAllBytes(Paths.get("/tmp/t/cover.jpg"));
-  Meta m = new Meta("Héllo – Test", "Grogu & Co", "Grogut", cover);
+  Meta m = new Meta("Héllo – Test", "Grogu & Co", "Gogrut", cover);
   for (int br : new int[]{128, 320, Format.BEST_VBR}) {
     long t0=System.currentTimeMillis();
     File f = new File("/tmp/t/out_"+br+".mp3");

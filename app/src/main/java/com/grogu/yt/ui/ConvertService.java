@@ -129,7 +129,7 @@ public class ConvertService extends Service {
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
         PendingIntent pi = PendingIntent.getService(this, 0, cancel, fl);
         Notification.Builder b = builder().setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Grogut").setContentText(text).setOngoing(true)
+                .setContentTitle("Gogrut").setContentText(text).setOngoing(true)
                 .setProgress(100, pct, pct <= 0)
                 .setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, MainActivity.class), fl));
         if (Build.VERSION.SDK_INT >= 23) b.addAction(new Notification.Action.Builder(null, "Cancel", pi).build());
@@ -138,7 +138,7 @@ public class ConvertService extends Service {
 
     private Notification done(String text) {
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
-        return builder().setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Grogut")
+        return builder().setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Gogrut")
                 .setContentText(text).setAutoCancel(true)
                 .setContentIntent(PendingIntent.getActivity(this, 1, new Intent(this, MainActivity.class), fl)).build();
     }

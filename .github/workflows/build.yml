@@ -33,10 +33,10 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk Grogut-${{ github.ref_name }}.apk
+        run: cp app/build/outputs/apk/release/app-release.apk Gogrut-${{ github.ref_name }}.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Grogut-${{ github.ref_name }}.apk
+          files: Gogrut-${{ github.ref_name }}.apk
           generate_release_notes: true
